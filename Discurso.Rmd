@@ -1,0 +1,352 @@
+---
+title: "Análisis de discursos presidenciales"
+subtitle: "Técnicas de Procesamiento de Lenguaje Natural"
+author: "Carlos Andrés Gómez Flórez"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+##output: ioslides_presentation
+logo: Maestria.jpg
+css: my.css
+output:
+  ioslides_presentation:
+    code_folding: hide   
+    df_print: paged
+    theme: "cosmo"
+    highlight: tango
+    text-align: center
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(quanteda)
+library(readtext)
+library(ggplot2)
+library(kableExtra)
+```
+
+## Definición del problema
+El análisis del discurso si bien es un problema que pareciera pertenecer al área de la lingüística, es hoy en día una práctica interdisciplinaria e interpretativa que tiene como objetivo entender el lenguaje en uso y estudiar sistemáticamente el discurso escrito, audiovisual y oral. 
+
+Actualmente hay muchas ramas que se preocupan por estudiar el discurso desde diferentes miradas. En la cuestión política, se estudia cómo el discurso influye en la producción, reproducción y transformación de las relaciones de poder.
+
+Me centraré en hacer un análisis de sentimientos de los discursos de 10 presidentes latinoamericanos, entre ellos los presidentes Colombianos desde el año 2002.
+
+## Objetivo General
+
+- Realizar un análisis exploratorio de texto y de sentimientos de distintos discursos presidenciales de Latinoamérica con el propósito de entender cómo funcionan algunas tendencias políticas desde la  conformación del discurso.
+
+## Objetivos Específicos
+- Realizar la búsqueda de los discursos presidenciales de interés para conformar el corpus del proyecto.
+- Realizar un análisis de métricas de legibilidad del texto.
+- Realizar el preprocesamiento de los documentos.
+- Realizar un análisis exploratorio a partir del corpus obtenido.
+- Realizar un análisis de dispersión léxica para los diferentes presidentes.
+- Realizar un análisis de similitudes y correlaciones entre discursos.
+- Realizar la extracción de sentimientos de cada discurso y clasificarlos en positivos y negativos.
+
+## Herramientas utilizadas
+
+- El proyecto se realizará en el software RStudio.
+- Se usarán los siguientes paquetes: **quanteda** para hacer todo el análisis cuantitativo de texto, **readtext** para realizar una correcta lectura de los documentos, **ggplot2** para hacer una buena gestión gráfica y **kableExtra** nos permitirá realizar tablar ordenadas y presentables. Los documentos necesarios para la reproducibilidad del proyecto se alojarán en Github y se podrán ver en RPubs.
+
+## ¿Qué es la Minería de Texto?
+
+La **minería de textos** es una rama específica de la minería de datos que se refiere al proceso de analizar y derivar información nueva de textos. Por medio de la identificación de patrones o correlaciones entre los términos se logra encontrar información que no está explícita dentro del texto. [Fuente: wikipedia](https://es.wikipedia.org/wiki/Miner%C3%ADa_de_textos).
+
+La `minería de textos` analiza la información de tipo textual. Es una disciplina transversal y de creciente interés, cuyas aplicaciones son múltiples. Entre otras: indexación de documentos, traducción automática, resumen automático de textos, reconocimiento de voz o identificación de la autoría de textos.
+
+## Componentes principales del análisis
+
+*Hay tres componentes principales de un texto tal como lo entiende quanteda:*
+
+* **El corpus** es un objeto dentro de R que creamos cargando nuestros datos de texto
+* **La matriz de características del documento (el "dfm")** es la unidad analítica sobre la que realizaremos el análisis.
+* **Tokens** son típicamente cada palabra individual en un texto.
+
+Para este análisis comparativo se descargaron desde la web los discursos presidenciales inaugurales de varios presidentes latinoamericanos.
+
+## Lectura y resumen de los documentos
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+data.file <- "C:/Users/USUARIO/Desktop/NLP/Trabajo final Procesamiento de Lenguaje Natural/Aplicaciones de Data Science"
+my_texts<- readtext(paste0(data.file, "\\Discursos\\*"), encoding = "UTF-8")
+my_texts$doc_id <- gsub(".txt","",my_texts$doc_id)
+discursos <- corpus(my_texts)
+docvars(discursos, "Presidente") <- gsub(".txt","",substring(docnames(my_texts), 6))
+docvars(discursos, "Año") <- as.integer(substring(docnames(my_texts), 1, 4))
+```
+
+<font size="2">
+```{r message=FALSE, warning=FALSE}
+
+summary <- summary(discursos)
+kable(summary,"html", caption = "Resumen del Corpus") %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width= F, position = "center")
+
+```
+</font>
+
+
+## Métricas de legibilidad del texto
+
+<font size="4">
+***Índice de niebla de Gunning (Gunning 1952) FOG***
+El índice de niebla de Gunning es una medida de la legibilidad de un escrito que se utiliza en lingüística. El índice se basa en dos indicadores: la longitud de las frases y de las palabras. 
+
+***Prueba de nivel de grado de Flesch-Kincaid (Flesch and Kincaid 1975)***
+En la prueba de facilidad de lectura de Flesch, las puntuaciones más altas indican material que es más fácil de leer; los números más bajos marcan los pasajes que son más difíciles de leer, la escala abarca de 0 a 100.
+
+***"ELF" Easy Listening Formula (Fang 1966)***
+ELF = número de sílabas por encima de una por palabra en una oración. Una oración promedio debe tener una puntuación *ELF* por debajo de 12 para que sea fácil de escuchar.
+</font>
+
+
+## Métricas de legibilidad del texto
+<font size="2">
+```{r message=FALSE, warning=FALSE}
+textstat_readability(discursos, measure = c("FOG", "Flesch.Kincaid", "ELF"))
+```
+
+```{r message=FALSE, warning=FALSE}
+tokeninfo <- summary(discursos)
+```
+</font>
+
+## Extensión del discurso
+
+Muestra de forma comparativa la extensión del discurso a través de la sumatoria de frases encontradas en el cuerpo textual.
+
+```{r fig.align='center', out.width= '80%', message=FALSE, warning=FALSE}
+ggplot(data = tokeninfo, aes(x=reorder(x=Presidente,-Sentences), y= Sentences, group = 1, fill=Presidente))+
+        geom_bar(stat = "identity", show.legend = F)+
+        geom_text(aes(label=Sentences), vjust=-0.2, hjust=0.5)+
+        ggtitle("Extensión del discurso Presidencial")+
+        xlab("Presidente")+
+        ylab("Frases")+ theme(legend.position = "none", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        scale_fill_brewer(palette = "Set3")
+```
+
+## Frecuencia de palabras
+
+Se realiza una nube de palabras para identificar temáticas o términos que son bastante comunes entre todos los discursos presidenciales. Esto nos permite analizar algunas tendencias en los discursos. 
+
+```{r fig.align='center', out.width= '80%', message=FALSE, warning=FALSE}
+dfm_inaug <- corpus_subset(discursos)%>%
+        dfm(remove = stopwords('spanish'), remove_punct = TRUE, remove_numbers = TRUE)%>%
+        dfm_trim(min_termfreq = 10, verbose = FALSE)
+set.seed(30)        
+textplot_wordcloud(dfm_inaug, color = rev(RColorBrewer::brewer.pal(10, "RdBu")))
+
+```
+
+## Comparación de palabras entre presidentes 
+Se realiza una breve comparación de palabras entre presidentes de diferentes tendencias como lo són Hugo Chávez y Evo Morales versus Iván Duque, Álvaro Uribe y Juan Manuel Santos.
+```{r fig.align='center', out.width= '80%', message=FALSE, warning=FALSE}
+
+corpus_subset(discursos,
+                Presidente %in% c("Hugo_Chavez", "Evo_Morales", "Ivan_Duque", "Alvaro_Uribe", "Juan_Manuel_Santos"))%>%
+                dfm(groups = "Presidente", remove = stopwords("spanish"), stem = TRUE, remove_punct = TRUE, remove_numbers = TRUE)%>%
+                dfm_trim(min_termfreq = 20, verbose = TRUE)%>%
+                textplot_wordcloud(comparison = TRUE, color = rev(RColorBrewer::brewer.pal(3,"Dark2")))
+
+```
+
+## Dispersión léxica y lenguaje controlado
+
+Se puede observar la frecuencia de uso y el momento del discurso en el que se utilizó la palabra clave buscada, en este caso son dos palabras que están en el contexto de un discurso político: ***pueblo*** y ***presidente***
+
+```{r fig.align='center', out.width= '75%', message=FALSE, warning=FALSE}
+dfm_palabra<-corpus_subset(discursos)
+tplot<- textplot_xray(
+                kwic(dfm_palabra, pattern = "pueblo"),
+                kwic(dfm_palabra, pattern = "presidente")
+        )
+tplot + aes(color = keyword)+
+        ggtitle("Uso de Keywords en el discurso presidencial")
+```
+
+## Dispersión léxica y lenguaje controlado
+Para el caso de las palabras clave: ***educación*** y ***democracia***:
+
+```{r fig.align='center', out.width= '75%', message=FALSE, warning=FALSE}
+tplot<- textplot_xray(
+                kwic(dfm_palabra, pattern = "educación"),
+                kwic(dfm_palabra, pattern = "democracia")
+        )
+tplot + aes(color = keyword)+
+        ggtitle("Uso de Keywords en el discurso presidencial")
+```
+
+## Dispersión léxica y lenguaje controlado
+
+Finalmente, las palabras clave: ***economía*** y ***empleo***
+
+```{r fig.align='center', out.width= '75%', message=FALSE, warning=FALSE}
+tplot<- textplot_xray(
+                kwic(dfm_palabra, pattern = "economía"),
+                kwic(dfm_palabra, pattern = "empleo")
+        )
+tplot + aes(color = keyword)+
+        ggtitle("Uso de Keywords en el discurso presidencial")
+```
+
+## Keywords identificadas por discurso
+
+Comparación del discurso de ***Juan Manuel Santos*** con el de ***Evo Morales***
+
+```{r fig.align='center', out.width= '80%', message=FALSE, warning=FALSE}
+pres_bolivia <- corpus_subset(discursos,
+                             Presidente %in% c("Evo_Morales","Juan_Manuel_Santos"))
+
+pres_dfm <- dfm(pres_bolivia, groups = "Presidente", remove = stopwords("Spanish"),
+                remove_punct = TRUE)
+
+result_keyness <- textstat_keyness(pres_dfm, target = "Juan_Manuel_Santos")
+
+textplot_keyness(result_keyness)
+
+```
+
+## Keywords identificadas por discurso
+Comparación del discurso de ***Álvaro Uribe*** con el de ***Hugo Chávez***
+
+```{r fig.align='center', out.width = '80%', message=FALSE, warning=FALSE}
+pres_vzlmx <- corpus_subset(discursos,
+                              Presidente %in% c("Hugo_Chavez","Alvaro_Uribe"))
+
+pres_dfm <- dfm(pres_vzlmx, groups = "Presidente", remove = stopwords("Spanish"),
+                remove_punct = TRUE)
+
+result_keyness2 <- textstat_keyness(pres_dfm, target = "Alvaro_Uribe")
+
+textplot_keyness(result_keyness2)
+```
+
+## Análisis de similitudes y correlaciones entre los discursos
+
+Estas funciones calculan matrices de distancias y similitudes entre documentos o características de un `dfm()` y devuelven una matriz de similitudes o distancias en un formato disperso.
+
+En este caso usaremos el análisis de "coseno", el cual es ampliamente utilizado en la representación vectorial de documentos para análisis de temáticas. Este se encarga de conocer el ángulo entre dos vectores n-dimensionales en un espacio n-dimensional.
+
+## Análisis de similitudes entre los discursos
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+similitudes <- dfm(corpus_subset(discursos), remove = stopwords("spanish"), 
+                            stem = TRUE, remove_punct = TRUE)
+similitud_discursos <- textstat_simil(similitudes, margin = "documents", method = "cosine")
+
+```
+
+```{r fig.align='center', out.width = '80%', message=FALSE, warning=FALSE}
+dotchart(as.list(similitud_discursos)$"2018-Ivan_Duque", xlab = "Similitud del discurso de Ivan Duque (min=0, max=1)", pch = 19)
+```
+
+## Análisis de similitudes entre los discursos
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+similitudes <- dfm(corpus_subset(discursos), remove = stopwords("spanish"), 
+                            stem = TRUE, remove_punct = TRUE)
+similitud_discursos <- textstat_simil(similitudes, margin = "documents", method = "cosine")
+
+```
+
+```{r fig.align='center', out.width = '80%', message=FALSE, warning=FALSE}
+dotchart(as.list(similitud_discursos)$"1999-Hugo_Chavez", xlab = "Similitud del discurso de Hugo Chavez (min=0, max=1)", pch = 19)
+```
+
+## Distancia entre discursos
+
+Existen varias geometrías para explicar la distancia entre dos puntos, dos de las más conocidas son la [euclidiana](https://es.wikipedia.org/wiki/Geometr%C3%ADa_euclidiana) y la [Manhattan](https://es.wikipedia.org/wiki/Geometr%C3%ADa_del_taxista).
+En este caso usaremos la geometría **Manhattan** para calcular la distancia entre los discursos de los presidentes.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+distancia_discursos <- textstat_dist(similitudes, margin = "documents", method =  "manhattan")
+distancia_discursos
+```
+
+```{r fig.align='center', out.width= '80%', message=FALSE, warning=FALSE}
+dotchart(as.list(distancia_discursos)$"2020-Luis_Arce", xlab = "Distancia manhattan del discurso de Luis Arce", pch = 19)
+```
+
+## Red de agrupamiento de palabras
+
+Muchas veces un grupo de palabras puede proporcionarle más perspectiva que una sola palabra. Veamos la red de palabras identificadas en el discurso de ***Álvaro Uribe***
+
+```{r fig.align='center', out.width = '80%', message=FALSE, warning=FALSE}
+arce <- corpus_subset(discursos, Presidente=="Alvaro_Uribe" )
+
+red_arce <-
+        tokens(arce, remove_punct = TRUE, remove_numbers = TRUE) %>%
+        tokens_tolower() %>%
+        tokens_remove(stopwords("spanish"), padding = FALSE) %>%
+        fcm(context = "window", window = 5, tri = FALSE)
+
+topfeats <- names(topfeatures(red_arce, 30))
+
+set.seed(110)
+net_arce <-textplot_network(fcm_select(red_arce, topfeats), min_freq = 0.8, edge_color = "#0000cc")
+net_arce + labs(title = "Red de palabras usadas en el discurso de Alvaro Uribe (2020)",
+               subtitle = "La frecuencia representada en el grosor de la linea")
+
+```
+
+## Red de agrupamiento de palabras
+Ahora veamos la red de palabras del discurso de ***Evo Morales***
+
+```{r fig.align='center', out.width = '80%', message=FALSE, warning=FALSE}
+evo <- corpus_subset(discursos, Presidente=="Evo_Morales" )
+red_evo <-
+        tokens(evo, remove_punct = TRUE, remove_numbers = TRUE) %>%
+        tokens_tolower() %>%
+        tokens_remove(stopwords("spanish"), padding = FALSE) %>%
+        fcm(context = "window", window = 5, tri = FALSE)
+
+
+topfeats <- names(topfeatures(red_evo, 30))
+
+set.seed(100)
+net_evo <- textplot_network(fcm_select(red_evo, topfeats), min_freq = 0.8, edge_color = "#FF6600")
+net_evo + labs(title = "Red de palabras usadas en el discurso de Evo Morales (2006)",
+               subtitle = "La frecuencia representada en el grosor de la linea")
+
+```
+
+## Extracción de sentimientos de los discursos
+<font size="1">
+Sentimientos por tokens del discurso:
+
+```{r message=FALSE, warning=FALSE, out.width= '50%'}
+sentimiento <- tokens(discursos, remove_punct = TRUE)
+sent <- tokens_lookup(sentimiento, dictionary = data_dictionary_LSD2015[1:2])
+head(sent)
+```
+</font>
+
+## Tabla resumen de sumaroria de sentimientos
+<font size="2">
+```{r message=FALSE, warning=FALSE}
+df_sentiment <- dfm(sent)
+kable(df_sentiment,"html", caption = "Resumen de Sentimientos extraidos") %>%
+        kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                      full_width= F, position = "center")
+
+```
+</font>
+
+## Conclusiones
+ 
+- Existen múltiples técnicas que permiten la visualización, interpretación y análisis de correlación y/o similitud entre los discursos; lo que permite establecer relaciones entre temáticas o tendencias políticas.
+- De los análisis de similitud se puede apreciar que el discurso de Hugo Chavez tiene bastante similitud con el discurso de Nicolas Maduro mientras se aleja de discursos como el de Álvaro Uribe, Iván Duque o Santos en el primer periodo.
+- Me pareció un ejercicio muy interesante porque a partir de estos análisis se pueden apreciar tendencias discursivas orientadas al beneficio político y que podrían relacionarse con las costumbres y culturas de un país.
+
+## Conclusiones
+
+- De la Red de Agrupamiento de Palabras de Alvaro Uribe se puede establecer por ejemplo que la "Seguridad Democrática" está correlacionada a palabras como libertades, democracia, libertad, autoridad, orden, paz. 
+- De la tabla de resumen del análisis de sentimientos se puede inferir que hay un relativo balance entre los sentimientos positivos y negativos de la mayoría de presidentes.Esto puede significar que desde la preparación de los discursos presidenciales se utilizan técnicas orientadas a satisfacer una demanda discursiva que permita persuadir a ciertos grupos ciudadanos. 
+
+# ¡MUCHAS GRACIAS!
+
+### Sigue el trabajo en [Github](https://github.com/AndresG25/Natural-Language-Processing)
+```{r, echo=FALSE, fig.align='center', out.width = '80%'}
+knitr::include_graphics("C:/Users/USUARIO/Desktop/NLP/github.png")
+```
