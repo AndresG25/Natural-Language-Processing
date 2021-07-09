@@ -21,6 +21,8 @@ library(quanteda)
 library(readtext)
 library(ggplot2)
 library(kableExtra)
+library(cluster)
+library(factoextra)
 ```
 
 ## Definición del problema
@@ -179,12 +181,25 @@ tplot + aes(color = keyword)+
 
 ## Dispersión léxica y lenguaje controlado
 
-Finalmente, las palabras clave: ***economía*** y ***empleo***
+Para el caso de las palabras clave: ***economía*** y ***empleo***
 
 ```{r fig.align='center', out.width= '75%', message=FALSE, warning=FALSE}
 tplot<- textplot_xray(
                 kwic(dfm_palabra, pattern = "economía"),
                 kwic(dfm_palabra, pattern = "empleo")
+        )
+tplot + aes(color = keyword)+
+        ggtitle("Uso de Keywords en el discurso presidencial")
+```
+
+## Dispersión léxica y lenguaje controlado
+
+Finalmente, las palabras clave: ***seguridad*** y ***educación***
+
+```{r fig.align='center', out.width= '75%', message=FALSE, warning=FALSE}
+tplot<- textplot_xray(
+                kwic(dfm_palabra, pattern = "seguridad"),
+                kwic(dfm_palabra, pattern = "educación")
         )
 tplot + aes(color = keyword)+
         ggtitle("Uso de Keywords en el discurso presidencial")
@@ -237,7 +252,7 @@ similitud_discursos <- textstat_simil(similitudes, margin = "documents", method 
 
 ```
 
-```{r fig.align='center', out.width = '80%', message=FALSE, warning=FALSE}
+```{r message=FALSE, out.width = '80%', warning=FALSE}
 dotchart(as.list(similitud_discursos)$"2018-Ivan_Duque", xlab = "Similitud del discurso de Ivan Duque (min=0, max=1)", pch = 19)
 ```
 
@@ -257,15 +272,26 @@ dotchart(as.list(similitud_discursos)$"1999-Hugo_Chavez", xlab = "Similitud del 
 ## Distancia entre discursos
 
 Existen varias geometrías para explicar la distancia entre dos puntos, dos de las más conocidas son la [euclidiana](https://es.wikipedia.org/wiki/Geometr%C3%ADa_euclidiana) y la [Manhattan](https://es.wikipedia.org/wiki/Geometr%C3%ADa_del_taxista).
-En este caso usaremos la geometría **Manhattan** para calcular la distancia entre los discursos de los presidentes.
+En este caso usaremos la geometría **euclidiana** para calcular la distancia entre los discursos de los presidentes.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-distancia_discursos <- textstat_dist(similitudes, margin = "documents", method =  "manhattan")
-distancia_discursos
+distancia_discursos <- textstat_dist(similitudes, margin = "documents", method =  "euclidean")
+
 ```
 
 ```{r fig.align='center', out.width= '80%', message=FALSE, warning=FALSE}
-dotchart(as.list(distancia_discursos)$"2020-Luis_Arce", xlab = "Distancia manhattan del discurso de Luis Arce", pch = 19)
+dotchart(as.list(distancia_discursos)$"1999-Hugo_Chavez", xlab = "Distancia euclidiana del discurso de Hugo Chavez", pch = 19)
+```
+
+## Agrupamiento Jerárquico
+
+```{r message=FALSE, warning=FALSE, out.width = '80%'}
+hc_euclidea <- hclust(d = dist(x = similitudes, method = "euclidean"),
+                                method = "complete")
+
+fviz_dend(x = hc_euclidea, k = 2, cex = 0.7) +
+    geom_hline(yintercept = 215, linetype = "dashed") +
+    labs(title = "Herarchical clustering")
 ```
 
 ## Red de agrupamiento de palabras
@@ -344,9 +370,20 @@ kable(df_sentiment,"html", caption = "Resumen de Sentimientos extraidos") %>%
 - De la Red de Agrupamiento de Palabras de Alvaro Uribe se puede establecer por ejemplo que la "Seguridad Democrática" está correlacionada a palabras como libertades, democracia, libertad, autoridad, orden, paz. 
 - De la tabla de resumen del análisis de sentimientos se puede inferir que hay un relativo balance entre los sentimientos positivos y negativos de la mayoría de presidentes.Esto puede significar que desde la preparación de los discursos presidenciales se utilizan técnicas orientadas a satisfacer una demanda discursiva que permita persuadir a ciertos grupos ciudadanos. 
 
+## Preguntas anteriores y comentarios
+
+- ¿Se compararán discursos de Santos-Uribe contra otros?
+- ¿Cuántos discursos vas a tener en total de otros mandatarios?
+- No parece que haya suficientes datos para un enfoque de aprendizaje profundo.
+- ¿En qué formato están los discursos?
+- Intenta utilizar datos de todos los puntos de vista políticos.
+
+
 # ¡MUCHAS GRACIAS!
 
 ### Sigue el trabajo en [Github](https://github.com/AndresG25/Natural-Language-Processing)
+### Sigue la presentación en RPubs
+[https://rpubs.com/Andres25/789190](https://rpubs.com/Andres25/789190)
 ```{r, echo=FALSE, fig.align='center', out.width = '80%'}
 knitr::include_graphics("C:/Users/USUARIO/Desktop/NLP/github.png")
 ```
